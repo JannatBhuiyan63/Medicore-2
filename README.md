@@ -578,6 +578,36 @@ When the token is decoded on either the client or server, it yields the followin
 
 ---
 
+#### System Users Statistics Dashboard
+
+   * **URL:** `http://localhost:3000/api/v1/user/admin/dashboard/stats`
+
+   * **Method:** `GET`
+
+   * **Auth Required:** Yes (Admin Only)
+
+   * **Description:** Generates aggregate registration numbers divided across roles to assist system reporting.
+
+Success Response (200 OK):
+
+```json
+{
+    "data": {
+        "breakdown": {
+            "pharmacists": 2,
+            "patients": 5,
+            "doctors_approved": 5,
+            "doctors_pending": 9
+        },
+        "total_users": 21
+    },
+    "success": true
+}
+
+```
+
+---
+
 ### 7. Communication Service
 
 #### 💬 Send Message

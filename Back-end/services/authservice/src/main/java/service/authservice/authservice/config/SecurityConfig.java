@@ -9,8 +9,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.web.cors.CorsConfiguration;
-import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -20,21 +18,17 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(request -> {
-                CorsConfiguration config = new CorsConfiguration();
-                config.setAllowedOrigins(List.of("*"));
-                config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-                config.setAllowedHeaders(List.of("*"));
-                return config;
-            }))
-            
+
+            // REMOVE auth-service CORS config completely
+            // gateway will handle CORS
+
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            
+
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/v1/internal/**").permitAll()
                 .requestMatchers("/api/v1/auth/user/**").permitAll()
-                .requestMatchers("/api/v1/auth/**").permitAll() 
-                .anyRequest().authenticated() 
+                .requestMatchers("/api/v1/auth/**").permitAll()
+                .anyRequest().authenticated()
             );
 
         return http.build();

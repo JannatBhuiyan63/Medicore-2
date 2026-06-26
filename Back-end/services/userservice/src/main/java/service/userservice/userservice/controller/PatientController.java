@@ -15,14 +15,16 @@ import java.util.stream.Collectors;
 import service.userservice.userservice.repository.AppointmentRepository;
 import service.userservice.userservice.repository.DoctorProfileRepository;
 import service.userservice.userservice.repository.PrescriptionRepository;
+import service.userservice.userservice.service.DoctorNameResolver;
 
-@RestController 
+@RestController
 @RequestMapping("/api/v1/patient")
 public class PatientController {
-    
+
     @Autowired private AppointmentRepository apptRepo;
     @Autowired private PrescriptionRepository prescRepo;
     @Autowired private DoctorProfileRepository docRepo;
+    @Autowired private DoctorNameResolver doctorNameResolver;
 
     /**
      * Helper method to validate if the user is actually a patient.
@@ -77,9 +79,12 @@ public class PatientController {
 
             // 5. Fetch Doctor Profile
             DoctorProfile docProfile = docRepo.findById(doctorId).orElse(new DoctorProfile());
+            // DoctorProfile.name is @Transient (null on a fresh fetch). Try the input
+            // from the booking form first, then fall back to auth-service for old bookings.
             String doctorName = doctorNameInput != null
                     ? doctorNameInput
-                    : (docProfile.getName() != null ? docProfile.getName() : "Unknown");
+                    : doctorNameResolver.resolve(doctorId);
+            if (doctorName == null) doctorName = "Unknown";
 
             // 6. Return Success Response
             return ResponseEntity.status(201).body(Map.of(
@@ -136,6 +141,8 @@ public class PatientController {
 
         // Enrich each appointment with the doctor's name, specialization and location
         // so the patient-side My Appointments table can render without extra calls.
+        // Doctor names that weren't snapshotted at booking time are resolved live from
+        // auth-service via DoctorNameResolver (with an in-memory cache).
         List<Map<String, Object>> data = mine.stream()
                 .sorted((a, b) -> {
                     String ad = a.getDate() != null ? a.getDate() : "";
@@ -144,9 +151,12 @@ public class PatientController {
                 })
                 .map(appt -> {
                     DoctorProfile doc = docRepo.findById(appt.getDoctorId()).orElse(new DoctorProfile());
-                    String doctorName = appt.getDoctorName() != null
+                    // Priority: snapshotted name from booking -> auth-service lookup -> fallback.
+                    // DoctorProfile.name is @Transient so we can't rely on the local fetch.
+                    String doctorName = appt.getDoctorName() != null && !appt.getDoctorName().isBlank()
                             ? appt.getDoctorName()
-                            : (doc.getName() != null ? doc.getName() : "Unknown");
+                            : doctorNameResolver.resolve(appt.getDoctorId());
+                    if (doctorName == null) doctorName = "Unknown";
                     String specialization = doc.getSpecialization() != null ? doc.getSpecialization() : "";
                     String location = doc.getLocation() != null ? doc.getLocation() : "";
                     String status = Boolean.TRUE.equals(appt.getIsComplete()) ? "Completed" : "Booked";

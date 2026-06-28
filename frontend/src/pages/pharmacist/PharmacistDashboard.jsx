@@ -591,6 +591,11 @@ function SearchPrescriptionTab() {
 function PrescriptionResult({ result }) {
   const meds = Array.isArray(result.medicines) ? result.medicines : [];
 
+  // Backend serializes the embedded collection with snake_case
+  // (`medicine_name`); frontend historically also reads camelCase
+  // (`medicineName`). Accept either so older rows still render.
+  const medName = (m) => m?.medicine_name || m?.medicineName || m?.name || "";
+
   return (
     <section className="card" style={{ marginTop: 16, padding: "20px 22px" }}>
       <div className="doctor-section__head" style={{ marginBottom: 12 }}>
@@ -598,27 +603,27 @@ function PrescriptionResult({ result }) {
         <span className="badge badge-success">Found</span>
       </div>
 
+      {/* Patient identity + appointment date — the only header info the
+          pharmacist actually needs to confirm they're looking at the
+          right prescription. */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
           gap: 12,
           marginBottom: 16,
         }}
       >
-        <InfoTile label="Patient ID"  value={result.patient_id} />
-        <InfoTile label="Doctor ID"   value={result.doctor_id} />
-        <InfoTile label="Symptoms"    value={result.symptoms} />
-        <InfoTile label="Prescription ID" value={result.prescription_id} />
+        <InfoTile
+          label="Patient name"
+          value={result.patient_name || result.patientName || "—"}
+        />
+        <InfoTile label="Date" value={result.date || "—"} />
       </div>
 
-      {result.description ? (
-        <p className="text-muted small" style={{ marginTop: 0 }}>
-          <strong>Notes:</strong> {result.description}
-        </p>
-      ) : null}
-
-      <h4 style={{ margin: "16px 0 8px", fontSize: 14 }}>Medicines ({meds.length})</h4>
+      <h4 style={{ margin: "8px 0 10px", fontSize: 14 }}>
+        Medicines ({meds.length})
+      </h4>
 
       {meds.length === 0 ? (
         <div className="state-empty">
@@ -626,33 +631,32 @@ function PrescriptionResult({ result }) {
         </div>
       ) : (
         <ul className="doctor-appt-list">
-          {meds.map((m, idx) => (
-            <li key={(m.medicine_name || m.medicineName || "med") + "-" + idx} className="doctor-appt-row">
-              <div
-                className="doctor-appt-avatar"
-                style={{
-                  background: `hsl(${(idx * 53) % 360}, 55%, 88%)`,
-                  color: `hsl(${(idx * 53) % 360}, 45%, 30%)`,
-                }}
-                aria-hidden
+          {meds.map((m, idx) => {
+            const name = medName(m) || "(unnamed)";
+            return (
+              <li
+                key={(name || "med") + "-" + idx}
+                className="doctor-appt-row"
               >
-                {initialsOf(m.medicine_name || m.medicineName)}
-              </div>
-              <div className="doctor-appt-body">
-                <div className="doctor-appt-name">
-                  {m.medicine_name || m.medicineName || "(unnamed)"}
+                <div
+                  className="doctor-appt-avatar"
+                  style={{
+                    background: `hsl(${(idx * 53) % 360}, 55%, 88%)`,
+                    color: `hsl(${(idx * 53) % 360}, 45%, 30%)`,
+                  }}
+                  aria-hidden
+                >
+                  {initialsOf(name)}
                 </div>
-                <div className="doctor-appt-meta">
-                  Dose: <strong>{m.dosage || "—"}</strong>
-                  {" · "}
-                  Duration: <strong>{m.duration || "—"}</strong>
+                <div className="doctor-appt-body">
+                  <div className="doctor-appt-name">{name}</div>
                 </div>
-              </div>
-              <div className="doctor-appt-right">
-                <span className="doctor-pill doctor-pill--blue">#{idx + 1}</span>
-              </div>
-            </li>
-          ))}
+                <div className="doctor-appt-right">
+                  <span className="doctor-pill doctor-pill--blue">#{idx + 1}</span>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </section>

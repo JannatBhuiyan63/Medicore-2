@@ -11,11 +11,12 @@ import lombok.*;
 public class Medicine {
     @Id @GeneratedValue(strategy = GenerationType.UUID) private String medicineId;
 
-    // Canonical: medicineName. Frontend posts `name`; map both ways so
-    // the API accepts the friendly field name without breaking callers
-    // that still send `medicineName`.
+    // Canonical: medicine_name on the wire. Accept `name` on input AND on
+    // output so the frontend can keep using the friendly field name in
+    // both directions without breaking callers that still send the
+    // snake_case or camelCase form.
     @JsonProperty("medicine_name")
-    @JsonAlias({"medicineName", "name"})
+    @JsonAlias({"name", "medicineName"})
     private String medicineName;
 
     @JsonAlias({"price"})

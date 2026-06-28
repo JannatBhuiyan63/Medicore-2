@@ -7,6 +7,7 @@ import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -82,6 +83,21 @@ public class PharmacistController {
             "success", false,
             "message", "Medicine not found."
         )));
+    }
+
+    @DeleteMapping("/medicines/{id}")
+    public ResponseEntity<?> deleteMedicine(@PathVariable String id) {
+        if (!medRepo.existsById(id)) {
+            return ResponseEntity.status(404).body(Map.of(
+                "success", false,
+                "message", "Medicine not found."
+            ));
+        }
+        medRepo.deleteById(id);
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "message", "Medicine removed from inventory."
+        ));
     }
 
     // ── Search Prescription ───────────────────────────────────────────────
@@ -175,6 +191,30 @@ public class PharmacistController {
         data.put("description", last.getDescription());
         data.put("transaction_id", last.getTransactionId());
         data.put("medicines", last.getMedicineDetails());
+
+        // 4. Enrich with the human-readable fields the dashboard wants:
+        //    patient name (from auth-service) and the appointment date.
+        //    Best-effort — never let these lookups fail the search.
+        data.put("date", latestAppt.getDate());
+
+        try {
+            @SuppressWarnings("rawtypes")
+            ResponseEntity<Map> userResp = restTemplate.getForEntity(
+                "http://localhost:8001/api/v1/auth/user/" + patientId,
+                Map.class
+            );
+            @SuppressWarnings("unchecked")
+            Map<String, Object> userBody = userResp.getBody();
+            if (userBody != null && Boolean.TRUE.equals(userBody.get("success"))) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> userData = (Map<String, Object>) userBody.get("data");
+                if (userData != null && userData.get("name") != null) {
+                    data.put("patient_name", String.valueOf(userData.get("name")));
+                }
+            }
+        } catch (Exception ignored) {
+            // Patient-name lookup is purely cosmetic; skip silently.
+        }
 
         return ResponseEntity.ok(Map.of(
             "success", true,
